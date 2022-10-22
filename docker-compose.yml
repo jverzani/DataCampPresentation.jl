@@ -1,0 +1,27 @@
+version: '3'
+services:
+  jupyter:
+    image: myworkflowjl
+    container_name: myjupyter
+    volumes:
+      - ./:/work
+    working_dir: /work
+    ports:
+      - "8888:8888"
+    command: jupyter notebook --notebook-dir /work --ip=0.0.0.0 --allow-root
+  lab:
+    image: myworkflowjl
+    container_name: mylab
+    volumes:
+      - ./:/work
+    working_dir: /work
+    ports:
+      - "8888:8888"
+    command: jupyter lab --notebook-dir /work --ip=0.0.0.0 --allow-root
+  julia:
+    image: myworkflowjl
+    container_name: myjulia
+    volumes:
+      - ./:/work
+    working_dir: /work
+    command: julia -J /sysimages/ijulia.so --project=/work

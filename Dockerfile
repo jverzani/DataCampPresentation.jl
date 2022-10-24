@@ -14,7 +14,9 @@ RUN apt-get update && \
     xvfb \
     libgtk-3-0 \
     dvipng \
+    texlive-latex-recommended  \
     zip \
+    r-base \
     libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5 # GR \
     && \
     apt-get clean && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* # clean up
@@ -117,6 +119,9 @@ RUN mkdir -p /root/.jupyter/lab/user-settings/@jupyterlab/shortcuts-extension &&
 }\n\
 ' >> /root/.jupyter/lab/user-settings/@jupyterlab/shortcuts-extension/shortcuts.jupyterlab-settings
 
+# Install packages for R
+RUN Rscript -e "install.packages(c('IRkernel')); IRkernel::installspec()" && \
+    Rscript -e "install.packages('ggplot2')"
 
 RUN mkdir -p ${HOME}/.julia/config && \
     echo '\
@@ -142,17 +147,19 @@ using Revise \n\
 # Install Julia Packages
 RUN julia -e 'using Pkg; \
 Pkg.add([\
+    PackageSpec(name="Atom", version="0.12.30"), \
+    PackageSpec(name="Juno", version="0.8.4"), \
     PackageSpec(name="PackageCompiler", version="1.5.0"), \
     PackageSpec(name="OhMyREPL", version="0.5.10"), \
-    PackageSpec(name="Plots", version="1.35.4"), \
-    PackageSpec(name="Revise", version="3.4.0"), \
-    PackageSpec(name="CSV", version="0.10.4"), \
-    PackageSpec(name="Chain", version="0.5.0"), \
-    PackageSpec(name="DataFrames", version="1.4.1"), \
-    PackageSpec(name="FreqTables", version="0.4.5"), \
+    PackageSpec(name="Plots", version="1.22.1"), \
+    PackageSpec(name="StatsPlots", version="0.14.25"), \
+    PackageSpec(name="DifferentialEquations", version="6.18.0"), \
+    PackageSpec(name="Revise", version="3.1.17"), \
 ]); \
-Pkg.pin(["PackageCompiler", "OhMyREPL", "Revise", "Plots", "CSV", "Chain", "DataFrames", "FreqTables"]); \
+Pkg.pin(["PackageCompiler", "Atom", "Juno", "OhMyREPL", "Revise", "Plots"]); \
 Pkg.add(["PlotlyJS"]); \
+Pkg.add(["Documenter", "Literate", "Weave", "Franklin", "NodeJS"]); \
+using NodeJS; run(`$(npm_cmd()) install highlight.js`); using Franklin; \
 '
 
 # suppress warning for related to GR backend
@@ -163,7 +170,8 @@ RUN julia -e 'ENV["PYTHON"]=Sys.which("python3"); \
               ENV["JUPYTER"]=Sys.which("jupyter"); \
               using Pkg; \
               # Install test dependencies for IJulia \
-              Pkg.add(PackageSpec(name="JSON", version="0.21.1")); \
+              Pkg.add(PackageSpec(name="JSON", version="0.21.3")); \
+	      Pkg.add(PackageSpec(name="CSV", version="0.10.6")); \
               # Install test dependencies for Plots \
               Pkg.add([\
                   PackageSpec(name="Clustering", version="0.14.2"), \
@@ -222,18 +230,16 @@ RUN xvfb-run julia \
              --trace-compile=traced_runtests.jl \
              -e '\
                 ENV["CI"]="true"; \
-                using Plots, DataFrames, FreqTables, CSV; \
+                using Plots, StatsPlots; \
                 try include(joinpath(pkgdir(Plots), "test", "runtests.jl")) catch end; \
-                try include(joinpath(pkgdir(DataFrames), "test", "runtests.jl")) catch end; \
-                try include(joinpath(pkgdir(FreqTables), "test", "runtests.jl")) catch end; \
-                try include(joinpath(pkgdir(CSV), "test", "runtests.jl")) catch end; \
+                include(joinpath(pkgdir(StatsPlots), "test", "runtests.jl")); \
                 ENV["CI"]="false"; \
                 '
 
 # update sysimage
 RUN mkdir /sysimages && julia -e 'using PackageCompiler; \
               create_sysimage(\
-                  [:DataFrames, :FreqTables, :CSV, :Plots], \
+                  [:StatsPlots, :Plots], \
                   precompile_statements_file=["traced_runtests.jl", "/tmp/traced_nb.jl"], \
                   sysimage_path="/sysimages/ijulia.so", \
                   cpu_target = PackageCompiler.default_app_cpu_target(), \
@@ -242,7 +248,7 @@ RUN mkdir /sysimages && julia -e 'using PackageCompiler; \
 # generate sysimage for Atom/Juno user
 RUN julia -J /sysimages/ijulia.so -e '\
     using PackageCompiler; PackageCompiler.create_sysimage(\
-        [:Plots], \
+        [:Plots, :Juno, :Atom], \
         precompile_statements_file="/tmp/atomcompile.jl", \
         sysimage_path="/sysimages/atom.so", \
         cpu_target = PackageCompiler.default_app_cpu_target(), \
@@ -254,7 +260,7 @@ ENV JULIA_PROJECT=/work
 COPY ./requirements.txt /work/requirements.txt
 RUN pip install -r requirements.txt
 COPY ./Project.toml /work/Project.toml
-COPY ./src/DataCampPresentation.jl /work/src/DataCampPresentation.jl
+COPY ./src/MyWorkflow.jl /work/src/MyWorkflow.jl
 
 # Initialize Julia package using /work/Project.toml
 RUN rm -f Manifest.toml && julia -J /sysimages/ijulia.so -e 'using Pkg; \

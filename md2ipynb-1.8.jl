@@ -32,7 +32,7 @@ ipynb_tpl_colab = mt"""
         "colab_type": "text"
       },
       "source": [
-        "<a href=\\\"https://colab.research.google.com/github/XXXIPYNB\\\" target=\\\"_parent\\\"><img src=\\\"https://colab.research.google.com/assets/colab-badge.svg\\\" alt=\\\"Open In Colab\\\"/></a>"
+        "<a href=\\\"https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp.ipynb\\\" target=\\\"_parent\\\"><img src=\\\"https://colab.research.google.com/assets/colab-badge.svg\\\" alt=\\\"Open In Colab\\\"/></a><a href=\\\"https://mybinder.org/v2/gh/jverzani/DataCampPresentation.jl/main?labpath&#61;datacamp.ipynb\\\"><img src=\\\"https://mybinder.org/badge_logo.svg\\\" alt=\\\"Binder\\\" /></a>"
       ]
     },
     {
@@ -168,4 +168,11 @@ cell["source"] == String[""] && println("XXXXXXX")
     Mustache.render(io, ipynb_tpl, Dict("CELLS" => join(newblocks, ",\n")))
 
 
+end
+
+
+function create_colab()
+    open("datacamp.ipynb", "w") do io
+        mdToPynb(io, "datacamp.qmd")
+    end
 end

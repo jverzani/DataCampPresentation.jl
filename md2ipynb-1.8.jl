@@ -32,7 +32,7 @@ ipynb_tpl_colab = mt"""
         "colab_type": "text"
       },
       "source": [
-        "<a href=\\\"https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp.ipynb\\\" target=\\\"_parent\\\"><img src=\\\"https://colab.research.google.com/assets/colab-badge.svg\\\" alt=\\\"Open In Colab\\\"/></a><a href=\\\"https://mybinder.org/v2/gh/jverzani/DataCampPresentation.jl/main?labpath&#61;datacamp.ipynb\\\"><img src=\\\"https://mybinder.org/badge_logo.svg\\\" alt=\\\"Binder\\\" /></a>"
+        "<a href=\\\"{{{:COLAB_LINK}}}\\\" target=\\\"_parent\\\"><img src=\\\"https://colab.research.google.com/assets/colab-badge.svg\\\" alt=\\\"Open In Colab\\\"/></a><a href=\\\"{{{:BINDER_LINK}}}\\\"><img src=\\\"https://mybinder.org/badge_logo.svg\\\" alt=\\\"Binder\\\" /></a>"
       ]
     },
     {
@@ -102,7 +102,7 @@ ipynb_tpl_colab = mt"""
         }
       ]
     },
-{{{CELLS}}}
+{{{:CELLS}}}
   ]
 }
 
@@ -112,7 +112,7 @@ ipynb_tpl = ipynb_tpl_colab
 
 
 ## Main function to take a jmd file and turn into a ipynb file
-function mdToPynb(io::IO, fname::AbstractString)
+function mdToPynb(io::IO, fname::AbstractString; COLAB_LINK=nothing, BINDER_LINK=nothing)
 
     newblocks = Any[]
 
@@ -165,14 +165,19 @@ cell["source"] == String[""] && println("XXXXXXX")
     end
 
     ## return string
-    Mustache.render(io, ipynb_tpl, Dict("CELLS" => join(newblocks, ",\n")))
+    Mustache.render(io, ipynb_tpl;
+                    CELLS = join(newblocks, ",\n"),
+                    COLAB_LINK = COLAB_LINK,
+                    BINDER_LINK = BINDER_LINK)
 
 
 end
 
 
 function create_colab()
+    COLAB_LINK = "https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp.ipynb"
+    BINDER_LINK = "https://mybinder.org/v2/gh/jverzani/DataCampPresentation.jl/main?labpath&#61;datacamp.ipynb"
     open("datacamp.ipynb", "w") do io
-        mdToPynb(io, "datacamp.qmd")
+        mdToPynb(io, "datacamp.qmd"; COLAB_LINK=COLAB_LINK, BINDER_LINK=BINDER_LINK)
     end
 end

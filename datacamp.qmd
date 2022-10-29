@@ -381,10 +381,12 @@ The use of `:` above to reference all rows has an alternative:
 s[!,5], s[!, :ID]
 ```
 
-The difference is that `:` makes a copy, whereas `!` makes a view.
+The basic difference is that `:` makes a copy, whereas `!` makes a view. See this [blog post](https://bkamins.github.io/julialang/2022/10/28/indexing.html) for more detail.
 
-For this presentation, it doesn't really matter, but for performance reasons, the `!` is commonly seen in examples and should be utilized when possible (though `:` is more idiomatic within `Julia`, it being used similarly with matrix or array indexing).
+For performance reasons, `!` is used in many examples, but `:` is safer to use and consistent with the usage with matrix indexing.
 
+For assignment, a distinction is important: using `:` the assignment is in place, which
+means the type of the column can't change, whereas using `!` (or `s.variable`) it can. (This may be important, say,  if a column is read in as integer, but a floating point value is to be inserted, or if a coded value is replaced with `missing`.)
 
 ## Combining data frames
 

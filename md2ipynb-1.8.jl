@@ -181,3 +181,12 @@ function create_colab()
         mdToPynb(io, "datacamp.qmd"; COLAB_LINK=COLAB_LINK, BINDER_LINK=BINDER_LINK)
     end
 end
+
+
+function create_colab_answers()
+    COLAB_LINK = "https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp-answers.ipynb"
+    BINDER_LINK = "https://mybinder.org/v2/gh/jverzani/DataCampPresentation.jl/main?labpath&#61;datacamp-answers.ipynb"
+    open("datacamp-answers.ipynb", "w") do io
+        mdToPynb(io, "datacamp-answers.qmd"; COLAB_LINK=COLAB_LINK, BINDER_LINK=BINDER_LINK)
+    end
+end

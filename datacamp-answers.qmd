@@ -1,0 +1,1137 @@
+
+
+
+
+# Using Julia for some data wrangling taks
+
+
+`Julia` is a scripting language, like R and Python, with similarities and differences:
+
+* Like R and Python, the basic syntax of `Julia` is easy enough to learn
+* Like R and unlike Python, `Julia` has a concept of generic methods and multiple dispatch as an alternative to object-oriented approaches
+* `Julia` has a richer type system with parametric types helpful for generic programming over concrete types.
+* `Julia`'s multiple dispatch is said to be as easy as S3 and as powerful as S4 (Styles for R)
+* Unlike R and Python (but not variants), `Julia` uses llvm to on-the-fly compile its methods, resulting in a tradeoff balancing compile-time latency on first use with very rapid runtime after compilation
+* When well written, `Julia` can match speeds of C and Fortran, so it is possible to avoid the "two-language" problem
+* Like R and Python, base `Julia` code is readily extended  by add-on packages; packages are easily managed by a package manager.
+* Like `R` and `Python`, `Julia` readily interfaces with other languages  (R, Python, C are good examples)
+* `Julia` inherits practices from: lisp, R, Python, Ruby, and Matlab (making anyone feel at home?)
+* For numerical programming, as is often done in Matlab and Python, `Julia` has many best in class packages (e.g. `SciML`)
+* For general purpose programming, such is often done with Python, `Julia` has a pretty rich set of packages
+* For statistical programming, such is often done with R, `Julia` has many packages and great promise for new-package development. Unlike R, most all statistical features are in add-on packages, such as `DataFrames.jl` shown below.
+
+This presentation will demonstrate a modest data wrangling task that might be familiar to R users or Pandas users.
+
+## A few key Julia features
+
+
+### Types
+
+
+Julia has types (not classes) for different code values
+
+
+Base number types include:
+
+
+* integer, float, rational, big numbers, complex
+
+
+```{julia}
+i,s,r,b,c = 1, 1.0, 1//1, big(1), 1 + 0im
+```
+
+```{julia}
+typeof(i), typeof(r), typeof(s), typeof(b), typeof(c)
+```
+
+  * concrete versus abstract (Real, Integer, AbstractFloat)
+
+
+```{julia}
+isa(i, Integer), isa(r, Integer), isa(b, Integer)
+```
+
+```{julia}
+isa(s, Real), isa(s, AbstractFloat)
+```
+
+Strings and symbols play a role in names for data frames:
+
+```{julia}
+"string", :symbol
+```
+
+
+`Julia` has both `nothing` and `missing`, with `missing` playing the role of `NA` in R.
+
+
+```{julia}
+nothing, missing
+```
+
+### Containers
+
+
+Base `Julia` provides many basic containers for values:
+
+
+Vectors promote values to a common type
+
+
+```{julia}
+[1, 1.0, 1//1]
+```
+
+Tuples allow for heterogeneous containers (like a list in R)
+
+
+```{julia}
+(1, 1.0, 1//1)
+```
+
+While in R, vectors are matrices, in `Julia` they are distinct, though both are special cases of the `Array{T, N}` type:
+
+
+```{julia}
+v = [1,2,3]
+```
+
+```{julia}
+typeof(v)
+```
+
+```{julia}
+M = [1 2; 3 4]
+```
+
+```{julia}
+typeof(M)
+```
+
+The matrix `M`, as defined above, is loaded row by row. We can create a row vector, mirroring `v`, but it is an array with 2 coordinates:
+
+```{julia}
+vr = [1 2 3]
+```
+
+```{julia}
+typeof(vr)
+```
+
+Julia takes transposes seriously (i.e. `v'` is not `vr`):
+
+```{julia}
+v'
+```
+
+Associative arrays are implemented by dictionaries or named tuples:
+
+
+```{julia}
+nt = (a=1, b=2, c=3)
+nt.a
+```
+
+```{julia}
+dct = Dict("a"=>1, "b"=>2, "c"=>3)
+dct["a"]
+```
+
+(The keys of a named tuple are symbols, for the dictionary they are strings above, but may be other types.)
+
+
+In Julia it is very much possible for external packages to provide additional container types. We will use `DataFrame` and `NamedTable` in the following.
+
+
+### Functions
+
+
+There are different ways to define a function and different types of functions. These define two methods for a generic function `f`:
+
+
+```{julia}
+f(x) = x^5 + x - 1
+```
+
+```{julia}
+function f(x, y)
+   x + 2x*y + y^2
+end
+```
+
+This defines an anonymous function which is then *assigned* to `g`:
+
+
+```{julia}
+g = x -> x^5 - x - 1
+```
+
+Both types of functions are called in the conventional way:
+
+
+```{julia}
+f(1), g(1)
+```
+
+But generic functions have dispatch determined by the signature. Here we see the number of arguments dictates which method is called:
+
+
+```{julia}
+f(1,2) # uses f(x,y) not a call to f(x), which would error
+```
+
+Dispatch on the type of an argument is possible too, and perhaps more common. Here are default methods for `log` restricted to an initial argument of type `Number`:
+
+```{julia}
+methods(log, (Number,))
+```
+
+Packages and users can extend the `log` generic for other types, though it is *expected* that it be narrowed to types that they "own."
+
+----
+
+Anonymous functions are useful with higher order programming. The above definition for `g` is just a binding of the name to the anonymous function. Bindings are dynamic:
+
+
+```{julia}
+g = 9.8
+```
+
+The generic function adds to a (global) method table. The method table can be modified, but the binding can not:
+
+
+```{julia}
+f(x,y,z) = x^2 + y^2 + x^2
+```
+
+```{julia}
+#| error: true
+f = 42
+```
+
+Functions may have *positional* arguments (possibly with default values) and *keyword* ararguments (with default values)
+
+
+```{julia}
+h(a, b, c=3; d=4, e::Integer=5) = (a,b,c,d,e)
+@show h(1, 2)
+@show h(1, 2, 4)
+@show h(1, 2; d=6)  # ; or , are okay when calling h; positional first
+```
+
+Function application is also available through the `|>` (pipe) operator:
+
+
+```{julia}
+3 |> f  # calls f(x) = x^5 - x - 1 with a value of `3`
+```
+
+The definition for this operator is just
+
+
+```{julia}
+#| eval: false (will error, it extends a base operator...)
+|>(x, f) = f(x)
+```
+
+
+## The dot syntax
+
+
+R is vectorized. Matlab is also, but needs a "dot" to disambiguate certain operations. Current `Julia` is not vectorized, but a "dot" is used to broadcast function calls over the arguments (perhaps of different sizes)
+
+
+```{julia}
+x = [1,2,3]
+f.(x)  # [f(1), f(2), f(3)] like `map(f, x)`
+```
+
+```{julia}
+a = [:a, :b]  # "column vector"
+b = [:c :d]   # row vector
+h(x,y) = (x,y)
+h.(a,b)
+```
+
+## Iteration
+
+
+Basic iteration can be done using a for loop:
+
+
+```{julia}
+a, b = 1, 1
+for i in 1:3
+    a, b = b, a + b
+end
+a, b
+```
+
+Many objects are iterable (as the range `1:3` above). There are several *helper* functions for iteration. Among others, these examples show 3 ways to iterate over a matrix (each element, each row, each column):
+
+
+```{julia}
+M = [1 2; 3 4]
+for r ∈ M # order of traversal down column then over row
+    @show r
+end
+```
+
+```{julia}
+for r ∈ eachrow(M)
+    @show r
+end
+```
+
+```{julia}
+for r ∈ eachcol(M)
+    @show r
+end
+```
+
+Basic iteration tasks can also be achieved with a comprehension:
+
+
+```{julia}
+[2i + 4 for i in 1:3]
+```
+
+Similar to map which takes a function rather than an expression:
+
+
+```{julia}
+map(i -> 2i + 4, 1:3)
+```
+
+Base `Julia` provides many other higher order functions and add-on packages even more.
+
+
+## A data wrangling example using DataFrames
+
+
+Base Julia is extended by add-on packages. The built-in package manager can install them.
+
+```{julia}
+#| eval: false
+using Pkg
+Pkg.add(["CSV", "DataFrames"])
+```
+
+Packages are included in a session via `using` (or `import`):
+
+
+```{julia}
+using CSV, DataFrames
+```
+
+The background for this data is a possible college, Euphoria State. Each semester student records are stored, in this example as CSV files. These records included many things, but in particular grade for each class by student. The scenario below is there are historic grades and new enrollment data in separate files.
+
+
+The `CSV` provides a package for parsing structured data into a tabular format.  Generally the data is in a file, here we read it in from a multi-line string and store the data as a `DataFrame` object:
+
+```{julia}
+s11_data = """
+Column1,Term,Subject,Catalog,ID,Name,Session,Grade,Grade.In
+1,1149,ACC,114,812315,"Abernathy,Alice",1,A,A
+2,1149,MTH,123,812315,"Abernathy,Alice",1,C,C
+3,1152,ENG,132,812315,"Abernathy,Alice",1,A,A
+4,1152,ENG,211,812315,"Abernathy,Alice",1,B,B
+5,1169,MTH,231,889995,"Ballew,Bob",1,A,A
+6,1169,MTH,229,889995,"Ballew,Bob",1,A,A
+7,1172,ENG,111,889995,"Ballew,Bob",1,B,B
+8,1172,CSC,222,889995,"Ballew,Bob",1,A-,A-
+9,1179,CSC,222,889995,"Ballew,Bob",1,F,F
+10,1179,ENG,232,889995,"Ballew,Bob",1,A,A
+11,1182,PSY,100,889995,"Ballew,Bob",1,B+,B+
+12,1192,PSY,100,163486,"Carol,Carol",1,A,A
+13,1192,MTH,123,163486,"Carol,Carol",1,A,A
+14,1199,MTH,231,163486,"Carol,Carol",1,A,A
+15,1202,MTH,232,163486,"Carol,Carol",1,W,W
+"""
+```
+
+```{julia}
+s11 = CSV.read(IOBuffer(s11_data), DataFrame)
+```
+
+Some things are non-essential: `Grade.In` is technical, `Column1` an artifact of writing to a CSV file, ...
+
+### Access patterns
+
+Values in DataFrames can be accessed by index, column name, etc.
+
+```{julia}
+s11[2,5], s11[2, :ID], s11[2, "ID"], s11[2, r"^I"]
+```
+
+The last one prints differently, as the **column selector** could *possibly* match 0-1 or more columns, so a data frame is returned. The others match just a column, so the value is returned.
+
+
+----
+```{julia}
+# 💻 What "Term" is recorded in the 5th row?
+s11[5, :Term]
+```
+----
+
+All rows (or all columns) are implied by a colon, `:`:
+
+```{julia}
+s = first(s11, 3)  # first 3 rows
+s.ID, s[:, 5], s[:, "ID"], s[:, :ID]
+```
+
+The use of `:` above to reference all rows has an alternative:
+
+```{julia}
+s[!,5], s[!, :ID]
+```
+
+The basic difference is that `:` makes a copy, whereas `!` makes a view. See this [blog post](https://bkamins.github.io/julialang/2022/10/28/indexing.html) for more detail.
+
+When assigning a value in a column, the use of `s.ID` is convenient, as it replaces the current column.
+
+
+## Combining data frames
+
+Next we define some mock new data for the current semester
+
+```{julia}
+f22_data = """
+Term,Session,Career,Class Nbr,Section,Subject,Catalog,Component,ID,Name,Gender,Phone,Email,Grade,Grade In,Repeat,Instructor ID,Instructor Name,Day,Mtg Start,Mtg End,Add Dt,User,Grade Base
+1229,1,UGRD,36923,D001,MTH,105,LEC,163486,"Carol,Carol",F,555-1212,carol.carol@euphoria.edu,,,,24007235,Frank,M,10:10AM,12:05PM,8/17/22,23247055,GRD
+1229,1,UGRD,36923,D001,MTH,105,LEC,163486,"Carol,Carol",F,555-1212,carol.carol@euphoria.edu,,,,24007235,Frank,W,10:10AM,12:05PM,8/17/22,23247055,GRD
+1229,1,UGRD,34534,D001,ENG,110,LEC,163486,"Carol,Carol",F,555-1212,carol.carol@euphoria.edu,,,,43993434,Faythe,W,10:10:00AM,11:00AM,8/17/22,23247055,GRD
+1229,1,UGRD,43244,D011,PSY,100,LEC,185109,"Brock,Erin",U,555-2121,Brock.erin@euphoria.edu,,,,5435352,Grace,Th,2:30PM,4:20PM,,,
+1229,1,UGRD,36923,D001,MTH,105,LEC,185109,"Brock,Erin",U,555-2121,Brock.erin@euphoria.edu,,,,24007235,Frank,M,4:40PM,6:10PM,,,
+1229,1,UGRD,44332,D200,ENG,111,LEC,659056,"Mallory,Yves",M,555-2211,mallory.eve@euphoria.edu,,,,75544555,Mike,W,8:00AM,9:50AM,,,
+"""
+```
+
+This is read in as before:
+
+```{julia}
+f22 = CSV.read(IOBuffer(f22_data), DataFrame)
+```
+
+Over time the column names evolve. The old data has a minimal set, the new has more extensive repeated data:
+
+```{julia}
+names(s11)
+```
+
+```{julia}
+names(f22)
+```
+
+This finds common column names using a Unicode infix operator for `intersect`:
+
+```{julia}
+nms = names(f22) ∩ names(s11)
+```
+
+
+----
+```{julia}
+# 💻 The nms vector is a valid column selector. What is the data frame f22 with only the names from `nms`?
+f22[:, nms]
+
+```
+
+```{julia}
+# 💻 Wrap your previous command within `unique`. What is the difference?
+f22[:, nms] |> unique # combines first two  into 1
+```
+
+(The `f22` data is arranged to have replicated data for each day a class meets.)
+
+----
+
+The `vcat` function combines objects vertically (there is also `hcat` and `hvcat`).
+
+```{julia}
+studs = vcat(s11[:,nms], unique(f22[:,nms]))
+```
+
+
+DataFrames has much functionality for other types of data joins
+
+## Split-apply-combine
+
+The [split-apply-combine](https://vita.had.co.nz/papers/plyr.pdf) strategy is often used, and here we see `DataFrames` supports it fairly naturally.
+
+For this data, we want to create a new data structure for each student:
+
+
+containing their 1) first semester, 2) their last semester, and 3) their gpa.
+
+
+The first and last semester is conveniently returned by `extrema` when applied to `Term`, given the manner in which the term is coded.
+
+
+----
+```{julia}
+# 💻 What does extrema find for studs.Term?
+extrema(studs.Term)  # min and max in one pass
+```
+----
+
+
+
+The `gpa` requires turning letter grades into numbers. Here is a simple way:
+
+
+```{julia}
+function grade_to_number(x)
+	ismissing(x) && return x
+    x == "A"  ? 4.0 :
+	x == "A-" ? 3.7 :
+    x == "B+" ? 3.3 :
+	x == "B"  ? 3.0 :
+    x == "B-" ? 2.7 :
+    x == "C+" ? 2.3 :
+	x == "C"  ? 2.0 :
+    x == "D"  ? 1.0 :
+	x == "F"  ? 0.0 : missing
+end
+```
+
+
+
+The `gpa`  would just be done by applying `mean` (from the `Statistics` package).
+
+```{julia}
+using Statistics  # base Statistics module is very minimal, but has `mean`
+```
+
+----
+```{julia}
+# 💻  what goes wrong here? A one character fix is?
+xs = grade_to_number(studs.Grade) # it needs grade_to_number.(studs.Grade) --- a dot to broadcast
+```
+
+```{julia}
+# 💻 After ensuring xs is a vector, try finding the mean. What value do you get?
+mean(xs) # missing, need to somehow drop those
+```
+----
+
+
+For `mean(xs)` we have to be a bit careful with
+
+* `missing` values (`ismissing`, `skipmissing`)
+* and empty iterators (`isempty`)
+
+with this data:
+
+
+```{julia}
+
+function gpa(xs)
+    isempty(xs) && return missing
+    ys = grade_to_number.(xs)
+    all(ismissing.(ys)) && return missing
+    ys |> skipmissing |> mean
+end
+```
+
+The function we apply to the dataframe for each unique student would be:
+
+```{julia}
+function summarize_student(u)
+    m,n = size(u)
+    fterm, lterm = extrema(u.Term)
+    (F=fterm, L=lterm, N = m, gpa = gpa(u.Grade))
+end
+```
+
+
+----
+```{julia}
+# 💻 Apply `summarize_student` to the data frame for Alice created by subsetting the rows:
+df = studs[studs.Name .== "Abernathy,Alice",:]
+```
+
+```{julia}
+summarize_student(df)
+```
+----
+
+
+We can use the `groupby` function to split the data frame on an ID, call the above on each student, and then combine into a data frame.
+
+The `groupby` function splits the data:
+
+```{julia}
+students = groupby(studs, :ID)
+```
+
+
+----
+```{julia}
+# 💻 Group the data by the student name
+groupby(studs, :Name)
+```
+----
+
+
+
+The `GroupedDataFrame` object can be iterated over (but not broadcast over). Here we apply our function to each entry:
+
+```{julia}
+student_summaries = [summarize_student(student) for student ∈ students]
+```
+
+The `DataFrame` constructor can consume an array of named tuples that is produced by the comprehension, treating each tuple as a new row:
+
+
+```{julia}
+d = DataFrame(student_summaries)
+```
+
+### DataFrames mini language
+
+DataFrames provides a minilanguage to support the actions:
+
+* `combine`: create a new data frame with columns coming from transformations
+* `select`: create a new data frame with same number of rows (cases) with only the specified columns
+* `transform`: create a new data frame, as `select` with the same number of cases, but keeps original columns and any additional ones
+
+Transformations apply a function to source rows and store the result(s) in destination rows. The `=>` pair notation is used to separate. The pattern is
+
+
+```
+# source column(s) specifier => function => destination column(s) specifier
+```
+
+The middle one is a function, which may be an anonymous function, in which case parentheses may be needed due to operator precedence.)
+
+
+For example, in the below we will see `:Term => minimum => :F` which will apply the `minimum` function to each `Term` value in a data frame. The `minimum` function is a *reduction* returning a scalar, this will be stored in the computed data frame with variable name `F`. Similarly we have `:L` and `:N` computed:
+
+```{julia}
+students = groupby(studs, :ID)
+combine(students,
+        :Term => minimum => :F,
+        :Term => maximum => :L,
+        :Term => length => :N,
+        :Grade => gpa => :gpa)
+```
+
+
+----
+```{julia}
+# 💻 group studs by :Term then apply `gpa`. Which term has the lowest gpa in the mock data set?
+combine(groupby(studs, :Term), :Grade => gpa => :gpa)
+```
+----
+
+
+## Transforming data examples
+
+We continue with a larger set of randomly generated mock data. Here we read the data from an internet source, so first the built-in `download` function is called to download the file,
+
+```{julia}
+url = "https://raw.githubusercontent.com/jverzani/DataCampPresentation.jl/main/d.csv"
+d = CSV.read(download(url), DataFrame)
+```
+
+### Filtering
+
+We want to consider the more recent students only, so we filter out the students who started earlier:
+
+
+```{julia}
+d = filter(r -> r.F >= 1159, d)
+```
+
+* Somewhat idiosyncratically `filter` for a data frame filters over rows. (a preferred direction isn't obvious)
+* the call above is a bit wasteful, as we can filter in place with `filter!`. (The above allocates a new data frame)
+* As an alternative to `filter` there is `subset` (and `subset!`) which could also be used. E.g.:
+
+```{julia}
+subset(d, :F => ByRow(>=(1209)))
+```
+
+As another alternate, the mini language can also be used with filter
+
+```{julia}
+g1209(x) = x >= 1209
+filter(:F => g1209, d)
+```
+
+As an covenient alternate, we also have:
+
+
+```{julia}
+filter(:F => >=(1209), d)
+```
+
+To explain a bit:
+
+* `>=(1209)` is a curried from of `>=(x,y)` with `y=1209` -- there are a few such operators for convenience with such tasks;
+* `subset` needs `ByRow` (to ensure the function consumes an element in the column, not the entire column), whereas `filter` does not, as `filter` returns rows that match the function, so pass rows to the function, whereas, `subset` passes the whole column.)
+* The `r -> r.F == 1209` anonymous function is probably clearer...
+
+
+
+----
+```{julia}
+# 💻 Using `filter` extract those students whose first term was `1229`. How many were there?
+filter(:F => >=(1229), d)
+```
+
+```{julia}
+# 💻 Can you answer the same question for all terms using `combine`, say?
+combine(groupby(d, :F), :F => length => :cnt)
+```
+----
+
+
+### Creating new columns
+
+We want to compute how many semesters a student stayed. The data is computable as we have the first and last (`.F` and `.L`) semesters recorded. However, the semester uses an idiosyncratic storage (a leading `1`, two digit year, semester with spring=`1`, fall=`9`.)
+
+
+Here we decode:
+
+
+```{julia}
+function decode_semester(x)
+    yr  = div(x - 1000, 10)   # 1229 -> 22
+    val = rem(x, 10) == 2 ? 0.0 : 0.5 # 1229 -> 22 + 0.5; 1222 -> 22 + 0.0
+    yr + val
+end
+```
+
+We want to combine the `:F` and `:L` columns and make a new column.  For use, this becomes
+
+
+```{julia}
+Δ(f,l) = decode_semester(l) - decode_semester(f) + 1/2
+transform!(d, [:F, :L] => ByRow(Δ) => :semesters)
+```
+
+The subtlety above is the `ByRow` which is needed to broadcast the values here. In this example, we could have written `Δ` to broadcast with either:
+
+
+```{julia}
+Δ(f,l) = decode_semester.(l) - decode_semester.(f) .+ 1/2
+```
+
+Or using the `@.` **macro**:
+
+
+```{julia}
+@. Δ(f,l) = decode_semester(l) - decode_semester(f) + 1/2
+```
+
+Then we could have computed with:
+
+
+```{julia}
+d = transform(d, [:F, :L] => Δ => :alt_semesters)
+```
+
+
+----
+```{julia}
+# 💻 Can you compute the average number of classes taken per semester for each student?
+avg(s,n) = n/(2s)
+combine(d, [:semesters, :N] => ByRow(avg) => :avg)
+```
+----
+
+
+
+### Counting
+
+The number of semesters a student stays is of interest. At Euphoria State there are many good  reasons to transfer, so the simple model of 8 semesters and out is not typical.
+
+
+A simple tally could be done as follows:
+
+
+```{julia}
+sems = unique(d.semesters)
+cnt = Dict(s => 0 for s ∈ sems)  # initialize with a generator
+for r ∈ eachrow(d)
+    cnt[r.semesters] += 1
+end
+cnt
+```
+
+Since `for` loops are fast in `Julia` this is actually performant, but the dictionary used for counting is not that convenient.
+
+
+This counting can be achieved with `combine` followed by sorting:
+
+```{julia}
+df = combine(groupby(d, :semesters), nrow => :n)
+sort(df, :semesters)
+```
+
+
+----
+```{julia}
+# 💻 What is the distribution of the number of courses a student took while at Euphoria State?
+# use the argument `rev=true` to sort to order the values. What is the most common number of courses?
+df = combine(groupby(d, :N), nrow=> :n)
+sort(df, :n; rev=true)
+```
+
+```{julia}
+# 💻 what is the distribution of the mean number of courses taken by first term (:F)?
+# After sorting, which term had the most?
+df = combine(groupby(d, :F), :N => mean => :n)
+sort(df, :n; rev=true)
+```
+----
+
+
+
+## Contigency tables
+
+We are curious how the number of semesters has varied over the years and want a contingency table.
+
+Grouping by more than one column is possible, as this shows:
+
+```{julia}
+df = combine(groupby(d, [:semesters, :F]), nrow => :N)
+sort(df, [:F, :semesters])
+```
+
+But a more familiar display is in the form of a contingency table. For that we reach for a package that is useful for contingency tables:
+
+
+```{julia}
+# Pkg.add("FreqTables")
+import FreqTables: freqtable
+```
+
+The `freqtable` function is used like `R`'s `table` function (not `xtabs`, with its modeling formula interface):
+
+
+```{julia}
+m = freqtable(d.F, d.semesters)
+```
+
+Students on the lower diagonal are still enrolled, other students have left.
+
+
+----
+```{julia}
+# 💻 Make a contingency table of :F versus :L for d. Is the shape expected?
+freqtable(d.F, d.L) # yes, as :F <= :L we get 0s when this is not the case
+```
+----
+
+
+
+
+There are big variations between students who started in the fall versus the spring (more students start in the fall semester at Euphoria State). Here we select fall cohorts:
+
+
+```{julia}
+d1 = filter(r -> r.F % 10 == 9, d)
+m = freqtable(d1.F, d1.semesters)
+```
+
+
+----
+```{julia}
+# 💻 Repeat the above, finding a contingency table for those starting in the spring semester (Term ends in 2)
+d1 = filter(r -> r.F % 10 == 2, d)
+m = freqtable(d1.F, d1.semesters)
+```
+----
+
+
+
+This pattern of repeated data transformation is often done with a piping syntax, which can feel more natural. Here is one way to do so:
+
+
+```{julia}
+d |>
+    x -> filter(r -> r.F % 10 == 9, x) |>
+    x -> freqtable(x.F, x.semesters)
+```
+
+The anonymous functions are easy to write, but difficult to parse. Plus they add some boilerplate that would be nice to remove.
+
+
+In `Julia` there are **too** many solutions to this through add-on packages. One is to create a placeholder for the previous value so it can thread through the other might be to create simplified syntax for anonymous functions. We use the `Chain` package and `@chain` macro for the former, the `Underscores` package can do the latter (there are also related `Pipe`, `DataPipes`, `Lazy`, ... packages).
+
+We will use `Chain`
+
+```{julia}
+#Pkg.add("Chain")
+using Chain
+```
+
+
+With `Chain` we use two simple rules:
+
+
+* we can use an underscore, `_`, to specify where the passed along value should fit into the next function call
+* if no `_` is used, it is passed to the first position.
+
+Also with `Chain` the piping notation is implicit through a new line.
+
+The above becomes:
+
+```{julia}
+@chain d begin
+    filter(r -> r.F % 10 == 9, _)
+    freqtable(_.F, _.semesters)
+end
+```
+
+(The `Underscores.jl` package could avoid the remaining anonymous function.) Here we define a *closure* to create a function that fixes the semester:
+
+
+```{julia}
+function start_semester(x=:fall)
+    s = x == :spring ? 2 : 9
+    r -> r.F % 10 == s
+end
+```
+
+Then we have the above can be:
+
+
+```{julia}
+@chain d begin
+    filter(start_semester(:fall), _)
+    freqtable(_.F, _.semesters)
+end
+```
+
+
+----
+```{julia}
+# 💻 Can you filter by fall semester; then filter by :F being 1199 or greater; then make a table of first semster by number of courses?
+@chain d begin
+filter(start_semester(:fall), _)
+filter(:F => >=(1199), _)
+freqtable(_.F, _.N)
+end
+```
+
+```{julia}
+# 💻 Can you filter by fall semester; then filter by :gpa being 3.0 or greater; then make a table of first semster by number of courses?
+# something like this will be needed: filter(:gpa => !ismissing, _)
+@chain d begin
+filter(start_semester(:fall), _)
+filter(:gpa => !ismissing, _)
+filter(:gpa => >=(3.0), _)
+end
+```
+
+----
+
+
+## Visualization
+
+
+A visualization might be helpful. `Julia` has a few add-on packages for making plots: `PyPlot` uses the Python package `Matplotlib`; `GR` uses the GR graphing package; `Plots` is a very useful interface to those backends and others; `Makie` is a powerful package written in `Julia` which shines with 3-d graphics. Here we use the `PlotlyLight` interface to PlotlyJS, as it works quickly under colab.
+
+
+```{julia}
+# Pkg.add("PlotlyLight")
+using PlotlyLight
+```
+
+`PlotlyLight` is a *lightweight* interface to PlotlyJS, with `Config` used to create `JSON` from `Julia` objects.
+The PlotlyJS API has some shortcuts to make multiple plots, but for pedagogical reasons we show how to add each at once.
+
+
+
+For this graphic we have to be careful to remove the values on the diagonal, as we are looking for when students leave. First we define a function to make the plotting data (`x`, `y` values and a label) for a given semester.
+
+
+```{julia}
+function gather_data(s)
+    sem = first(s.F)
+	m = maximum(s.semesters)
+    n = length(s.semesters)
+
+	xs = 0.5:0.5:m
+	ys = [sum(s.semesters .== i) for i ∈ xs] ./ n
+
+    (x = xs[1:end-1], y = ys[1:end-1], name = string(sem))
+end
+```
+
+To make different plots with `PlotlyLight`, we set up a basic configuration, and reuse this for each layer:
+
+```{julia}
+cfg = Config(type="scatter", mode="lines markers")
+data = Config[]  # a typed array with no elements
+for s  ∈ groupby(d, :F)
+    first(s.F) == 1229 && continue
+    plt = copy(cfg)
+    plt.x, plt.y, plt.name = gather_data(s)
+    push!(data, plt)
+end
+lyt = Config(width=800, height=500)
+Plot(data, lyt)
+```
+
+
+A similar plot could be formed from the frequency table. In the above, we needlessly recreate that construction in `gather_data` with the comprehension.
+
+
+----
+```{julia}
+# 💻 filter out students so only those that started in a fall from fall 19 to fall 22 are shown.
+df = @chain d begin
+filter(start_semester(:fall), _)
+filter(:F => >=(1199), _)
+end
+
+data = Config[]  # a typed array with no elements
+for s  ∈ groupby(df, :F)
+    first(s.F) == 1229 && continue
+    plt = copy(cfg)
+    plt.x, plt.y, plt.name = gather_data(s)
+    push!(data, plt)
+end
+lyt = Config(width=800, height=500)
+Plot(data, lyt)
+
+```
+----
+
+
+Restricting the semesters details a bit more change in the patterns due to the pandemic. We might see an increase in students leaving after an initial semester.
+
+## More data management
+
+Suppose that is to be looked at, we might want to see if the GPA has
+something to do with it. Perhaps it is lack of preparation due to the
+pandemic, perhaps not.
+
+
+The `gpa` value is numeric, but we would prefer it be categorical. The `cut` function from the `CategoricalArrays` can perform that classification:
+
+
+```{julia}
+#Pkg.add("CategoricalArrays")
+import CategoricalArrays: cut
+```
+
+```{julia}
+rcode(gpa) = cut(gpa, [0.0, 2.0, 3.0, Inf];
+                 labels=["lo", "medium", "hi"])
+transform!(d, :gpa => rcode => :status)
+```
+
+```{julia}
+@chain d begin
+    filter(start_semester(:fall), _)
+    filter(:semesters => ==(0.5), _)
+    freqtable(_.F, _.status)
+end
+```
+
+Working a bit more, we want to manipulate the frequency table, but our tools are easier with DataFrames. Unfortunately, we don't have the most direct conversion. Here we extract its values and column names for the data frame, then insert the rownames as the first column of our data frame
+
+
+```{julia}
+"""
+    nt_2_df(m::NamedTable; nm=:ID)
+
+Convert named table (e.g., from `FreqTables`) into data frame.
+"""
+function nt_2_df(m; nm=:ID)
+    rnames, cnames = names(m, 1), names(m, 2)
+	D = DataFrame(m.array, (Symbol∘string).(cnames))
+	insertcols!(D, 1, nm => rnames)
+    D
+end
+```
+
+
+```{julia}
+_prop(x...) = sum(x[1:end-1]) / x[end]
+
+@chain d begin
+    filter(:F => !=(1229), _)
+    filter(:semesters => ==(0.5), _)
+    freqtable(_.F, _.status)
+    nt_2_df
+    combine(:ID, Not(:ID) => (+) => :N, :)
+    combine(:ID, :N,
+            [:lo, :missing, :N] => ByRow(_prop) => :lo,
+            [:medium, :N] => ByRow(_prop) => :medium,
+            [:hi, :N] => ByRow(_prop) => :hi)
+end
+
+```
+
+
+## Tangent: overriding a base method
+
+This shoehorns in an example of defining a user defined structure and custom `show` method, a common, easy-to-do, practice.
+
+This example is to create an alternate display for the table we saw previously:
+
+
+```{julia}
+sems = unique(d.semesters)
+cnt = Dict(s => 0 for s ∈ sems)  # initialize with a generator
+for r ∈ eachrow(d)
+    cnt[r.semesters] += 1
+end
+cnt
+```
+
+
+Defining new types is as easy as calling `struct` appropriately:
+
+```{julia}
+struct PrisonCount
+    x::Int
+end
+```
+
+This creates an immutable struct, mutable structs are also possible.
+
+We use the following Unicode string for the display:
+
+```{julia}
+tallies =  "\u007C"^4*"\u0338 "
+```
+
+Unicode is more commonly entered using LaTeX shortcuts (e.g., `\alpha[tab]`), the above uses code points. It also illustrates that `^` for strings is repetition and `*` is concatenation.
+
+To override the base `show` method for our new type, the method must be imported or qualified, as below, and the acceptable types of `x` below must be narrowed:
+
+```{julia}
+function Base.show(io::IO, x::PrisonCount)
+    d,r = divrem(x.x, 5)
+    if d > 10
+       print(io, "($d*5)... + ")
+       d = mod(d, 10)
+    end
+    print(io, tallies^d)
+    println(io, tallies[1:r]) # add newline at end
+end
+```
+
+* `Julia` permits a user to override base types for any type, but the common practice is to only do so for types that a package developer ones. "Type piracy" can be an issue.
+
+* The `show` method defined above is the catch all, there is also the ability to override based on the MIME type of the display. This notebook shows objects differently than the command line.
+
+* Indexing into a string is fruitfully done above. The empty range created by `1:r` when `r=0` requires no special case.
+
+Finally, we want to see the result
+
+```{julia}
+for k ∈ sort(collect(keys(cnt)))
+    print(k, " | ")
+    print(PrisonCount(cnt[k]))
+end
+```

@@ -370,7 +370,7 @@ The last one prints differently, as the **column selector** could *possibly* mat
 
 ----
 ```{julia}
-# What "Term" is recorded in the 5th row?
+# 💻 What "Term" is recorded in the 5th row?
 ```
 ----
 
@@ -433,12 +433,12 @@ nms = names(f22) ∩ names(s11)
 
 ----
 ```{julia}
-# The nms vector is a valid column selector. What is the data frame f22 with only the names from `nms`?
+# 💻 The nms vector is a valid column selector. What is the data frame f22 with only the names from `nms`?
 
 ```
 
 ```{julia}
-# Wrap your previous command within `unique`. What is the difference?
+# 💻 Wrap your previous command within `unique`. What is the difference?
 
 ```
 
@@ -466,6 +466,14 @@ containing their 1) first semester, 2) their last semester, and 3) their gpa.
 
 
 The first and last semester is conveniently returned by `extrema` when applied to `Term`, given the manner in which the term is coded.
+
+
+----
+```{julia}
+# 💻 What does extrema find for studs.Term?
+```
+----
+
 
 
 The `gpa` requires turning letter grades into numbers. Here is a simple way:
@@ -496,12 +504,12 @@ using Statistics  # base Statistics module is very minimal, but has `mean`
 
 ----
 ```{julia}
-# what goes wrong here? A one character fix is?
+# 💻  what goes wrong here? A one character fix is?
 xs = grade_to_number(studs.Grade)
 ```
 
 ```{julia}
-# After ensuring xs is a vector, try finding the mean. What value do you get?
+# 💻 After ensuring xs is a vector, try finding the mean. What value do you get?
 ```
 ----
 
@@ -537,7 +545,7 @@ end
 
 ----
 ```{julia}
-# Apply `summarize_student` to the data frame for Alice created by subsetting the rows:
+# 💻 Apply `summarize_student` to the data frame for Alice created by subsetting the rows:
 df = studs[studs.Name .== "Abernathy,Alice",:]
 ```
 ----
@@ -554,7 +562,7 @@ students = groupby(studs, :ID)
 
 ----
 ```{julia}
-# Group the data by the student name
+# 💻 Group the data by the student name
 ```
 ----
 
@@ -594,7 +602,9 @@ The middle one is a function, which may be an anonymous function, in which case 
 For example, in the below we will see `:Term => minimum => :F` which will apply the `minimum` function to each `Term` value in a data frame. The `minimum` function is a *reduction* returning a scalar, this will be stored in the computed data frame with variable name `F`. Similarly we have `:L` and `:N` computed:
 
 ```{julia}
-combine(students, :Term => minimum => :F,
+students = groupby(studs, :ID)
+combine(students,
+        :Term => minimum => :F,
         :Term => maximum => :L,
         :Term => length => :N,
         :Grade => gpa => :gpa)
@@ -603,7 +613,7 @@ combine(students, :Term => minimum => :F,
 
 ----
 ```{julia}
-# group by :Term then apply `gpa`. Which term has the lowest gpa in the mock data set?
+# 💻 group studs by :Term then apply `gpa`. Which term has the lowest gpa in the mock data set?
 ```
 ----
 
@@ -637,12 +647,20 @@ subset(d, :F => ByRow(>=(1209)))
 As another alternate, the mini language can also be used with filter
 
 ```{julia}
+g1209(x) = x >= 1209
+filter(:F => g1209, d)
+```
+
+As an covenient alternate, we also have:
+
+
+```{julia}
 filter(:F => >=(1209), d)
 ```
 
 To explain a bit:
 
-* `>=(1209)` is a curried from of `(x,y) -> x >= y` with `y=1209` -- there are a few such operators for convenience with such tasks;
+* `>=(1209)` is a curried from of `>=(x,y)` with `y=1209` -- there are a few such operators for convenience with such tasks;
 * `subset` needs `ByRow` (to ensure the function consumes an element in the column, not the entire column), whereas `filter` does not, as `filter` returns rows that match the function, so pass rows to the function, whereas, `subset` passes the whole column.)
 * The `r -> r.F == 1209` anonymous function is probably clearer...
 
@@ -650,11 +668,11 @@ To explain a bit:
 
 ----
 ```{julia}
-# Using `filter` extract those students whose first term was `1229`. How many were there?
+# 💻 Using `filter` extract those students whose first term was `1229`. How many were there?
 ```
 
 ```{julia}
-# Can you answer the same question for all terms using `combine`, say?
+# 💻 Can you answer the same question for all terms using `combine`, say?
 ```
 ----
 
@@ -707,7 +725,7 @@ d = transform(d, [:F, :L] => Δ => :alt_semesters)
 
 ----
 ```{julia}
-# Can you compute the average number of classes taken per semester for each student?
+# 💻 Can you compute the average number of classes taken per semester for each student?
 ```
 ----
 
@@ -743,13 +761,14 @@ sort(df, :semesters)
 
 ----
 ```{julia}
-# What is the distribution of the number of courses a student took while at Euphoria State?
+# 💻 What is the distribution of the number of courses a student took while at Euphoria State?
 # use the argument `rev=true` to sort to order the values. What is the most common number of courses?
 ```
 
 ```{julia}
-# what is the distribution of the mean number of courses taken by first term (:F)?
+# 💻 what is the distribution of the mean number of courses taken by first term (:F)?
 # After sorting, which term had the most?
+```
 ----
 
 
@@ -785,7 +804,7 @@ Students on the lower diagonal are still enrolled, other students have left.
 
 ----
 ```{julia}
-# Make a contingency table of :F versus :L for d. Is the shape expected?
+# 💻 Make a contingency table of :F versus :L for d. Is the shape expected?
 ```
 ----
 
@@ -803,7 +822,7 @@ m = freqtable(d1.F, d1.semesters)
 
 ----
 ```{julia}
-# Repeat the above, finding a contingency table for those starting in the spring semester (Term ends in 2)
+# 💻 Repeat the above, finding a contingency table for those starting in the spring semester (Term ends in 2)
 ```
 ----
 
@@ -871,11 +890,11 @@ end
 
 ----
 ```{julia}
-# Can you filter by fall semester; then filter by :F being 1199 or greater; then make a table of first semster by number of courses?
+# 💻 Can you filter by fall semester; then filter by :F being 1199 or greater; then make a table of first semster by number of courses?
 ```
 
 ```{julia}
-# Can you filter by fall semester; then filter by :gpa being 3.0 or greater; then make a table of first semster by number of courses?
+# 💻 Can you filter by fall semester; then filter by :gpa being 3.0 or greater; then make a table of first semster by number of courses?
 # something like this will be needed: filter(:gpa => !ismissing, _)
 ```
 
@@ -935,7 +954,7 @@ A similar plot could be formed from the frequency table. In the above, we needle
 
 ----
 ```{julia}
-# filter out students so only those that started in a fall from fall 19 to fall 22 are shown.
+# 💻 filter out students so only those that started in a fall from fall 19 to fall 22 are shown.
 ```
 ----
 

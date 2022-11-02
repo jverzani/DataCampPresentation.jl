@@ -1,5 +1,10 @@
 # DataCamp presentation
 
+[![Open notebook in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp.ipynb)
+
+[![Open notebook with answers in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp-answers.ipynb)
+
+
 A brief introduction to `Julia` through an example using `DataFrames`.
 
 The `.ipynb` file has links to run this through `colab.google.com` and `binder`.

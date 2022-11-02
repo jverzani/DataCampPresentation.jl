@@ -231,7 +231,7 @@ The definition for this operator is just
 
 
 ```{julia}
-#| eval: false (will error, it extends a base operator...)
+#| eval: false
 |>(x, f) = f(x)
 ```
 

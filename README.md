@@ -1,8 +1,8 @@
 # DataCamp presentation
 
-[![Open notebook in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp.ipynb)
+[![Open notebook in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp.ipynb) (The main notebook)
 
-[![Open notebook with answers in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp-answers.ipynb)
+[![Open notebook with answers in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jverzani/DataCampPresentation.jl/blob/main/datacamp-answers.ipynb) (The notebook with answers)
 
 
 A brief introduction to `Julia` through an example using `DataFrames`.
